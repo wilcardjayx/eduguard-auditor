@@ -4,6 +4,10 @@ from pathlib import Path
 from typing import List
 from core.models import Finding
 
+# Pre-compiled Regex Patterns
+RE_SQL_INJECTION = re.compile(r"(?:f['\"].*?(?:SELECT|INSERT|UPDATE|DELETE).*?\{.*?\})|(?:(?:SELECT|INSERT|UPDATE|DELETE).*?(?:%s|\+))", re.IGNORECASE | re.DOTALL)
+RE_COMMENTS = re.compile(r"(#.*$|//.*$)", re.MULTILINE)
+
 def scan_codebase(target_path: str) -> List[Finding]:
     findings = []
     base_dir = Path(target_path)
@@ -48,7 +52,7 @@ def scan_codebase(target_path: str) -> List[Finding]:
                 ))
 
             # 3. Check for unparameterized SQL queries (EDU-SAST-001)
-            if re.search(r"(SELECT|INSERT|UPDATE|DELETE).*f['\"].*\{.*\}.*['\"]", content, re.IGNORECASE):
+            if RE_SQL_INJECTION.search(content):
                 findings.append(Finding(
                     id="EDU-SAST-001",
                     pack_id="pack_4_sast",
@@ -61,7 +65,8 @@ def scan_codebase(target_path: str) -> List[Finding]:
                 ))
 
             # 4. Check for missing RBAC on student routes (EDU-RBAC-001)
-            if "@app.route" in content and "student" in content.lower() and "session" not in content and "token" not in content:
+            clean_content = RE_COMMENTS.sub("", content)
+            if "@app.route" in clean_content and "student" in clean_content.lower() and "session" not in clean_content and "token" not in clean_content:
                 findings.append(Finding(
                     id="EDU-RBAC-001",
                     pack_id="pack_5_rbac",
@@ -74,7 +79,7 @@ def scan_codebase(target_path: str) -> List[Finding]:
                 ))
 
             # 5. Check for unrestricted file upload (EDU-PRIV-001)
-            if "move_uploaded_file" in content or "multer" in content:
+            if "move_uploaded_file" in clean_content or "multer" in clean_content:
                 if "allowed_extensions" not in content and "mimetype" not in content:
                     findings.append(Finding(
                         id="EDU-PRIV-001",
@@ -85,6 +90,20 @@ def scan_codebase(target_path: str) -> List[Finding]:
                         location=str(rel_path),
                         evidence="File upload routine lacks extension whitelist or MIME-type validation.",
                         compliance_impact="Allows attackers to upload malicious executable scripts onto school servers."
+                    ))
+
+            # 6. Check for static Nginx configs lacking security headers (EDU-HTTP-001)
+            if file.endswith(".conf") and "listen 80;" in clean_content:
+                if "Strict-Transport-Security" not in clean_content and "return 301 https://" not in clean_content:
+                    findings.append(Finding(
+                        id="EDU-HTTP-001",
+                        pack_id="pack_2_transport",
+                        title="Missing Strict-Transport-Security (HSTS) Header",
+                        severity="MEDIUM",
+                        owasp_asvs_id="ASVS v4.0 - 14.4.4",
+                        location=str(rel_path),
+                        evidence="Nginx config listens on port 80 without enforcing HTTPS redirects or HSTS.",
+                        compliance_impact="Enforces HTTPS connections for student login and grade portals."
                     ))
 
     return findings
