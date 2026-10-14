@@ -143,77 +143,6 @@
             color: #E2FF32;
         }
 
-        /* Isometric Animation CSS */
-        .perspective-container {
-            perspective: 1000px;
-        }
-
-        .isometric-stack {
-            position: relative;
-            width: 280px;
-            height: 280px;
-            transform-style: preserve-3d;
-            transform: rotateX(60deg) rotateZ(-45deg);
-            animation: float 6s ease-in-out infinite;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: rotateX(60deg) rotateZ(-45deg) translateZ(0px); }
-            50% { transform: rotateX(60deg) rotateZ(-45deg) translateZ(20px); }
-        }
-
-        .layer {
-            position: absolute;
-            inset: 0;
-            border-radius: 24px;
-            border: 2px solid #141414;
-            transition: all 0.5s ease;
-        }
-
-        .layer-1 {
-            background-color: #FF6B2B;
-            transform: translateZ(0px);
-            box-shadow: -10px 10px 0px rgba(0,0,0,0.1);
-        }
-
-        .layer-2 {
-            background-color: #E2FF32;
-            transform: translateZ(40px);
-        }
-
-        .layer-3 {
-            background-color: #F4F2ED;
-            transform: translateZ(80px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .lens {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            border: 2px solid #141414;
-            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8), rgba(255,255,255,0.2));
-            backdrop-filter: blur(4px);
-            box-shadow: inset -5px -5px 15px rgba(0,0,0,0.1), 5px 5px 15px rgba(0,0,0,0.1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .lens::after {
-            content: '';
-            position: absolute;
-            top: 20%;
-            left: 20%;
-            width: 20px;
-            height: 20px;
-            background: white;
-            border-radius: 50%;
-            opacity: 0.6;
-            filter: blur(2px);
-        }
-
         /* Finding Card Print Styles */
         @media print {
             .finding-card {
@@ -297,7 +226,12 @@
                 <nav class="flex justify-between items-center px-8 py-6 pointer-events-auto">
                     <!-- Left: Logo -->
                     <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-charcoal-800 rounded-sm"></div>
+                        <svg width="32" height="32" viewBox="0 0 56 56" fill="none">
+  <path d="M28 26L52 38L28 50L4 38Z" fill="#FF6B2B" stroke="#FF6B2B" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M28 16L52 28L28 40L4 28Z" fill="#E2FF32" stroke="#E2FF32" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M28 6L52 18L28 30L4 18Z" fill="#F4F2ED" stroke="#141414" stroke-width="3" stroke-linejoin="round"/>
+  <ellipse cx="28" cy="18" rx="6" ry="3" fill="white" stroke="#141414" stroke-width="1.5"/>
+</svg>
                         <span class="font-display font-bold tracking-tight text-xl uppercase">EduGuard</span>
                     </div>
 
@@ -329,12 +263,12 @@
                             There is a Better Way<br>
                             <span class="inline-flex items-center align-middle mr-2 translate-y-[-4px]">
                                 <!-- 3-layer stacked SVG icon -->
-                                <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect x="4" y="12" width="40" height="40" rx="8" fill="#FF6B2B" opacity="0.8"/>
-                                    <rect x="10" y="8" width="40" height="40" rx="8" fill="#E2FF32" opacity="0.9"/>
-                                    <rect x="16" y="4" width="40" height="40" rx="8" border="2px solid #141414" fill="#141414"/>
-                                    <path d="M30 18L42 30L30 42L18 30L30 18Z" fill="#F4F2ED"/>
-                                </svg>
+                                <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+  <path d="M28 26L52 38L28 50L4 38Z" fill="#FF6B2B" stroke="#FF6B2B" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M28 16L52 28L28 40L4 28Z" fill="#E2FF32" stroke="#E2FF32" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M28 6L52 18L28 30L4 18Z" fill="#F4F2ED" stroke="#141414" stroke-width="3" stroke-linejoin="round"/>
+  <ellipse cx="28" cy="18" rx="6" ry="3" fill="white" stroke="#141414" stroke-width="1.5"/>
+</svg>
                             </span>
                             to Secure .EDU.
                         </h1>
@@ -361,16 +295,11 @@
                         </div>
                     </div>
 
-                    <!-- Right (40%) Isometric Graphic -->
-                    <div class="w-full lg:w-[40%] flex justify-center items-center pointer-events-none perspective-container h-[400px]">
-                        <div class="isometric-stack">
-                            <div class="layer layer-1"></div>
-                            <div class="layer layer-2"></div>
-                            <div class="layer layer-3">
-                                <div class="lens"></div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Right (40%) Video -->
+<div class="w-full lg:w-[40%] flex justify-center items-center h-[400px] pointer-events-none">
+  <video src="/ui/static/hero.mp4" autoplay muted loop playsinline
+    class="w-full h-full object-cover mix-blend-multiply"></video>
+</div>
                 </div>
             </section>
 
