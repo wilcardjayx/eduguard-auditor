@@ -9,8 +9,10 @@ from core.models import AuditPackRequest, AuditReport
 from scanners.orchestrator import run_audit
 from ai_engine.gemma_remediator import remediate_findings
 from core.exporter import generate_client_report
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="EduGuard - Local Gemma Security Auditor", version="1.0.0")
+app.mount("/ui", StaticFiles(directory="ui"), name="ui")
 
 # Setup UI templates directory
 templates_dir = Path("ui")
