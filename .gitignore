@@ -1,3 +1,10 @@
 __pycache__/
 *.pyc
 *.pyo
+
+eduguard/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
