@@ -7,7 +7,7 @@ from ai_engine.tracing import trace_ai_pipeline
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
-def remediate_findings(findings: List[Finding], model_name: str = "gemma4:e4b") -> List[GemmaRemediation]:
+def remediate_findings(findings: List[Finding], model_name: str = "gemma2:2b") -> List[GemmaRemediation]:
     remediations = []
     
     for finding in findings:

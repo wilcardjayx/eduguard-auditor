@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduGuard AI - Security Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&family=Inter:wght@400;500&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        body: ['Inter', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    },
+                    colors: {
+                        charcoal: {
+                            900: '#0a0a0a',
+                            800: '#141414',
+                            700: '#181818',
+                            600: '#2E2E2E',
+                            500: '#383838',
+                        },
+                        alabaster: '#F4F2ED',
+                        acid: '#E2FF32',
+                        tangerine: '#FF6B2B',
+                        crimson: '#FF4D4D',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Global CSS Reset & Setup */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #141414; /* Prevent white flash behind frame */
+            overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
+            color: #141414;
+        }
+
+        /* Persistent Viewport Overlay Frame */
+        #global-frame {
+            position: fixed;
+            inset: 0;
+            border: 16px solid #141414;
+            border-radius: 28px;
+            pointer-events: none; /* Let clicks pass through to scrolling content */
+            z-index: 100;
+        }
+
+        /* The scrollable inner content */
+        #viewport-content {
+            width: 100%;
+            min-height: 100vh;
+            /* Inner padding to clear the 16px border */
+            padding: 16px;
+            box-sizing: border-box;
+            background-color: #141414; /* Fallback for bottom section */
+        }
+
+        /* The inner rounded container that visually masks the content */
+        #scroll-container {
+            width: 100%;
+            height: 100%;
+            min-height: calc(100vh - 32px);
+            border-radius: 12px; /* 28px outer - 16px padding */
+            overflow: hidden;
+            position: relative;
+            background-color: #F4F2ED; /* Start with alabaster for the top section */
+        }
+
+        /* Bottom-Right Notched Cutout */
+        #bottom-cutout {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            background-color: #141414;
+            width: 300px;
+            height: 80px;
+            border-top-left-radius: 28px;
+            pointer-events: auto;
+            z-index: 101;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Invert corner radius hack for smooth notch (simplified using standard CSS) */
+        }
+
+        #bottom-cutout::before {
+            content: '';
+            position: absolute;
+            top: -16px;
+            right: 16px;
+            width: 16px;
+            height: 16px;
+            background-color: transparent;
+            border-bottom-right-radius: 16px;
+            box-shadow: 0 8px 0 0 #141414;
+            pointer-events: none;
+        }
+
+        #bottom-cutout::after {
+            content: '';
+            position: absolute;
+            bottom: 16px;
+            left: -16px;
+            width: 16px;
+            height: 16px;
+            background-color: transparent;
+            border-bottom-right-radius: 16px;
+            box-shadow: 8px 0 0 0 #141414;
+            pointer-events: none;
+        }
+
+        /* Mode Toggle Pill */
+        .mode-toggle {
+            background-color: #2E2E2E;
+            color: #F4F2ED;
+            border: 1px solid #383838;
+            border-radius: 9999px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mode-toggle:hover {
+            border-color: #F4F2ED;
+        }
+
+        .mode-toggle span.active {
+            color: #E2FF32;
+        }
+
+        /* Finding Card Print Styles */
+        @media print {
+            .finding-card {
+                break-inside: avoid;
+                page-break-inside: avoid;
+                border: 1px solid #ccc !important;
+                background-color: white !important;
+                color: black !important;
+            }
+            .finding-card .bg-charcoal-900 {
+                background-color: #f5f5f5 !important;
+            }
+            .finding-card * {
+                color: black !important;
+            }
+        }
+
+        /* Pack Card Active State Styles */
+        .pack-card.active .card-body {
+            background-color: #E2FF32 !important;
+            border-color: #E2FF32 !important;
+        }
+
+        .pack-card.active .tab-fill {
+            fill: #E2FF32 !important;
+        }
+
+        .pack-card.active .tab-stroke {
+            stroke: #E2FF32 !important;
+        }
+
+        .pack-card.active .tab-text {
+            color: #141414 !important;
+        }
+
+        .pack-card.active .card-title {
+            color: #141414 !important;
+        }
+
+        .pack-card.active .unselected-icon {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .pack-card.active .selected-content {
+            opacity: 1;
+        }
+
+        .pack-card.active .check-badge {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        @media print {
+            #global-frame, #bottom-cutout { display: none !important; }
+            #viewport-content { padding: 0 !important; }
+            #scroll-container { border-radius: 0 !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Persistent Overlay Frame -->
+    <div id="global-frame"></div>
+
+    <!-- Bottom Right Notched Cutout -->
+    <div id="bottom-cutout">
+        <button id="viewModeToggle" class="mode-toggle">
+            Mode: <span id="modeBoard" class="active">Board View</span> / <span id="modeDev">Dev Patch</span>
+        </button>
+    </div>
+
+    <!-- Scrollable Content -->
+    <div id="viewport-content">
+        <div id="scroll-container">
+
+            <!-- SECTION 1: TOP ALABASTER HERO -->
+            <section id="hero" class="bg-alabaster w-full min-h-[80vh] flex flex-col text-charcoal-800">
+
+                <!-- Navbar -->
+                <nav class="flex justify-between items-center px-8 py-6 pointer-events-auto">
+                    <!-- Left: Logo -->
+                    <div class="flex items-center gap-3">
+                        <svg width="32" height="32" viewBox="0 0 56 56" fill="none">
+  <path d="M28 26L52 38L28 50L4 38Z" fill="#FF6B2B" stroke="#FF6B2B" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M28 16L52 28L28 40L4 28Z" fill="#E2FF32" stroke="#E2FF32" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M28 6L52 18L28 30L4 18Z" fill="#F4F2ED" stroke="#141414" stroke-width="3" stroke-linejoin="round"/>
+  <ellipse cx="28" cy="18" rx="6" ry="3" fill="white" stroke="#141414" stroke-width="1.5"/>
+</svg>
+                        <span class="font-display font-bold tracking-tight text-xl uppercase">EduGuard</span>
+                    </div>
+
+                    <!-- Center: Floating Navbar -->
+                    <div class="hidden md:flex items-center gap-6 px-6 py-2 border border-charcoal-800 rounded-full bg-white/50 backdrop-blur-sm text-sm font-medium">
+                        <a href="#hero" class="hover:opacity-70 transition-opacity">Scanner</a>
+                        <a href="#workspace" class="hover:opacity-70 transition-opacity">Template Packs</a>
+                        <a href="#" class="hover:opacity-70 transition-opacity">OWASP ASVS</a>
+                        <a href="#" class="hover:opacity-70 transition-opacity">Gemma Engine</a>
+                    </div>
+
+                    <!-- Right: Status & CTA -->
+                    <div class="flex items-center gap-4">
+                        <div class="hidden lg:flex items-center gap-2 px-4 py-2 bg-charcoal-800 text-alabaster rounded-full text-xs font-mono font-medium">
+                            <span class="text-acid">●</span> Local Gemma4:E4B — 0KB Cloud Leak
+                        </div>
+                        <button onclick="document.getElementById('workspace').scrollIntoView({behavior: 'smooth'})" class="px-5 py-2 bg-charcoal-800 text-alabaster rounded-full text-sm font-medium hover:bg-charcoal-600 transition-colors flex items-center gap-2">
+                            Run Audit <span>↗</span>
+                        </button>
+                    </div>
+                </nav>
+
+                <!-- Hero Grid -->
+                <div class="flex-1 flex flex-col lg:flex-row items-center px-8 lg:px-16 py-12 gap-12 lg:gap-8">
+
+                    <!-- Left (60%) -->
+                    <div class="w-full lg:w-[60%] flex flex-col gap-10 z-10 pointer-events-auto">
+                        <h1 class="font-display font-medium text-[48px] lg:text-[68px] leading-[1.05] tracking-[-0.04em] text-charcoal-800 max-w-4xl">
+                            There is a Better Way<br>
+                            <span class="inline-flex items-center align-middle mr-2 translate-y-[-4px]">
+                                <!-- 3-layer stacked SVG icon -->
+                                <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+  <path d="M28 26L52 38L28 50L4 38Z" fill="#FF6B2B" stroke="#FF6B2B" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M28 16L52 28L28 40L4 28Z" fill="#E2FF32" stroke="#E2FF32" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M28 6L52 18L28 30L4 18Z" fill="#F4F2ED" stroke="#141414" stroke-width="3" stroke-linejoin="round"/>
+  <ellipse cx="28" cy="18" rx="6" ry="3" fill="white" stroke="#141414" stroke-width="1.5"/>
+</svg>
+                            </span>
+                            to Secure .EDU.
+                        </h1>
+
+                        <!-- Target Command Bar -->
+                        <div class="flex flex-col sm:flex-row items-center gap-3 p-2 bg-white border-[1.5px] border-charcoal-800 rounded-full max-w-3xl shadow-sm">
+                            <select id="scanMode" class="bg-transparent border-none outline-none text-sm font-medium px-4 py-3 cursor-pointer text-charcoal-800">
+                                <option value="source_code">Source Code</option>
+                                <option value="perimeter">Perimeter</option>
+                                <option value="hybrid">Hybrid</option>
+                            </select>
+
+                            <div class="w-[1px] h-8 bg-charcoal-800/20 hidden sm:block"></div>
+
+                            <input type="text" id="targetInput" value="./demo_target" class="flex-1 bg-transparent border-none outline-none px-4 py-3 text-sm font-mono text-charcoal-800 w-full sm:w-auto" placeholder="Target Directory or URL">
+
+                            <button onclick="document.getElementById('targetInput').value='./demo_target'" class="px-4 py-2 text-sm font-medium border border-charcoal-800/20 rounded-full hover:bg-charcoal-800 hover:text-white transition-colors whitespace-nowrap">
+                                Load Demo
+                            </button>
+
+                            <button onclick="runScan()" class="w-12 h-12 bg-charcoal-800 rounded-full flex items-center justify-center text-white hover:bg-charcoal-600 transition-colors shrink-0">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right (40%) Video -->
+<div class="w-full lg:w-[40%] flex justify-center items-center h-[400px] pointer-events-none">
+  <video src="/ui/static/hero.mp4" autoplay muted loop playsinline
+    class="w-full h-full object-cover mix-blend-multiply"></video>
+</div>
+                </div>
+            </section>
+
+            <!-- SECTION 2: MIDDLE CHARCOAL WORKSPACE -->
+            <section id="workspace" class="bg-charcoal-800 text-alabaster w-full min-h-screen pt-20 pb-24 pointer-events-auto">
+                <div class="px-8 lg:px-16 max-w-[1600px] mx-auto">
+
+                    <!-- Section Header -->
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 border-b border-charcoal-600 pb-8 gap-6">
+                        <h2 class="font-display font-light text-[40px] md:text-[52px] leading-tight text-alabaster">
+                            How Can<br>EduGuard Help?
+                        </h2>
+                        <div class="flex flex-col items-start md:items-end gap-4">
+                            <p class="text-charcoal-600 font-mono text-sm max-w-sm text-left md:text-right">Select the required template packs to construct your custom security baseline audit.</p>
+                            <button onclick="toggleAllPacks()" class="px-5 py-2 border border-charcoal-600 rounded-full text-sm font-medium hover:bg-charcoal-600 transition-colors">
+                                Toggle All Packs
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 6 Selectable Template Pack Cards (3-Column Grid) -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {% for pack in packs %}
+                        <!-- Card: Loop Index starts at 1, zfill(2) makes it 01 -->
+                        <div class="pack-card relative cursor-pointer select-none group" data-pack-id="{{ pack.id }}" onclick="togglePackCard(this)">
+
+                            <!-- Hidden checkbox state -->
+                            <input type="checkbox" class="pack-checkbox hidden" value="{{ pack.id }}">
+
+                            <!-- The Custom Folder Tab Geometry using SVG -->
+                            <div class="absolute -top-[1px] -left-[1px] w-24 h-8 z-10">
+                                <svg width="100" height="34" viewBox="0 0 100 34" fill="none" xmlns="http://www.w3.org/2000/svg" class="folder-tab-svg">
+                                    <path d="M0 20C0 8.95431 8.95431 0 20 0H80C88.246 0 95.3855 5.01633 98.421 12.3995L100 16.2398C101.442 19.7468 104.887 22 108.674 22H110" stroke="#383838" stroke-width="1.5" class="tab-stroke"/>
+                                    <path d="M1 20C1 9.50659 9.50659 1 20 1H80C87.8286 1 94.6133 5.76077 97.4947 12.7712L99.0737 16.6115C100.66 20.4687 104.451 23 108.674 23H110V34H1V20Z" fill="#181818" class="tab-fill"/>
+                                </svg>
+                                <span class="absolute top-1.5 left-5 font-mono text-[11px] font-bold text-charcoal-600 tracking-wider tab-text z-20">/ {{ "%02d"|format(loop.index) }}</span>
+                            </div>
+
+                            <!-- Main Card Body -->
+                            <div class="card-body h-full min-h-[320px] bg-charcoal-700 border border-charcoal-500 rounded-[20px] rounded-tl-none p-6 pt-12 flex flex-col justify-between transition-colors duration-300 relative overflow-hidden">
+
+                                <!-- Unselected State Content: Centered Decorative Icon -->
+                                <div class="unselected-icon absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2E2E2E" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                                </div>
+
+                                <!-- Selected State Content: Hidden by default -->
+                                <div class="selected-content opacity-0 transition-opacity duration-300 flex-1 flex flex-col">
+                                    <p class="font-mono text-sm leading-relaxed mb-4 text-charcoal-800 line-clamp-4">{{ pack.description }}</p>
+                                    <div class="mt-auto">
+                                        <span class="inline-block px-3 py-1 bg-charcoal-800/10 rounded-full text-xs font-bold text-charcoal-800 mb-2">
+                                            {{ pack.checks|length }} Checks Loaded
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Bottom Align Title & Check Badge -->
+                                <div class="mt-8 flex justify-between items-end relative z-10">
+                                    <h3 class="font-display font-medium text-[22px] leading-tight card-title transition-colors duration-300 text-white w-[80%]">{{ pack.name }}</h3>
+
+                                    <!-- Selected Checkmark Badge -->
+                                    <div class="check-badge w-10 h-10 bg-charcoal-800 rounded-full flex items-center justify-center opacity-0 scale-50 transition-all duration-300 transform origin-center">
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E2FF32" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION 3: BOTTOM LIVE WORKBENCH -->
+            <section id="workbench" class="bg-charcoal-800 text-alabaster w-full min-h-screen border-t border-charcoal-600 pointer-events-auto">
+                <div class="px-8 lg:px-16 max-w-[1600px] mx-auto py-20 pb-40"> <!-- pb-40 clears the fixed cutout -->
+
+                    <!-- Scorecard Header Bar -->
+                    <div class="flex flex-col md:flex-row justify-between items-center bg-charcoal-700 border border-charcoal-500 rounded-2xl p-6 mb-12 hidden" id="resultsHeader">
+                        <div class="flex items-center gap-8">
+                            <div class="flex flex-col">
+                                <span class="text-charcoal-600 font-mono text-sm uppercase tracking-wider mb-1">Security Grade</span>
+                                <div id="gradeBadge" class="font-display font-bold text-6xl leading-none text-acid">A</div>
+                            </div>
+                            <div class="w-[1px] h-16 bg-charcoal-600"></div>
+                            <div class="flex flex-col">
+                                <span class="text-charcoal-600 font-mono text-sm uppercase tracking-wider mb-1">Total Findings</span>
+                                <div class="font-display font-medium text-4xl leading-none text-white"><span id="totalFindings">0</span></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 md:mt-0">
+                            <button onclick="window.print()" class="px-6 py-3 border border-charcoal-500 rounded-full text-sm font-medium hover:bg-charcoal-600 hover:text-white transition-colors flex items-center gap-2">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                                Export Client PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="loadingState" class="hidden flex-col items-center justify-center py-32 space-y-6">
+                        <div class="w-16 h-16 border-4 border-charcoal-600 border-t-acid rounded-full animate-spin"></div>
+                        <h3 class="font-display text-2xl text-white">Gemma4:E4B is Auditing...</h3>
+                        <p class="font-mono text-sm text-charcoal-600">Analyzing target against selected template packs.</p>
+                    </div>
+
+                    <!-- Findings Container -->
+                    <div id="findingsContainer" class="space-y-6">
+                        <!-- Initial Empty State -->
+                        <div class="text-center py-32 border border-dashed border-charcoal-600 rounded-2xl" id="emptyState">
+                            <h3 class="font-display text-2xl text-charcoal-500 mb-2">Workbench Idle</h3>
+                            <p class="font-mono text-sm text-charcoal-600">Select packs and run an audit to view remediation results.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <script>
+        // Toggle Logic
+        let isDevPatchMode = false;
+        const toggleBtn = document.getElementById('viewModeToggle');
+        const modeBoard = document.getElementById('modeBoard');
+        const modeDev = document.getElementById('modeDev');
+
+        toggleBtn.addEventListener('click', () => {
+            isDevPatchMode = !isDevPatchMode;
+            if (isDevPatchMode) {
+                modeDev.classList.add('active');
+                modeBoard.classList.remove('active');
+                document.body.classList.add('dev-patch-mode');
+            } else {
+                modeBoard.classList.add('active');
+                modeDev.classList.remove('active');
+                document.body.classList.remove('dev-patch-mode');
+            }
+            // Update rendered code blocks if any exist
+            document.querySelectorAll('.code-content').forEach(el => {
+                const encodedData = isDevPatchMode ? el.getAttribute('data-diff') : el.getAttribute('data-snippet');
+                el.textContent = decodeURIComponent(encodedData);
+            });
+        });
+
+        // Pack Card Selection Logic
+        function togglePackCard(cardElement) {
+            cardElement.classList.toggle('active');
+            const checkbox = cardElement.querySelector('.pack-checkbox');
+            if (checkbox) {
+                checkbox.checked = cardElement.classList.contains('active');
+            }
+        }
+
+        function toggleAllPacks() {
+            const cards = document.querySelectorAll('.pack-card');
+            const allActive = Array.from(cards).every(card => card.classList.contains('active'));
+
+            cards.forEach(card => {
+                if (allActive) {
+                    card.classList.remove('active');
+                    const cb = card.querySelector('.pack-checkbox');
+                    if (cb) cb.checked = false;
+                } else {
+                    card.classList.add('active');
+                    const cb = card.querySelector('.pack-checkbox');
+                    if (cb) cb.checked = true;
+                }
+            });
+        }
+
+        // Run Scan API Call & Render
+        async function runScan() {
+            const target = document.getElementById('targetInput').value;
+            const scanMode = document.getElementById('scanMode').value;
+
+            // Gather selected pack IDs
+            const selectedPacks = [];
+            document.querySelectorAll('.pack-checkbox:checked').forEach(cb => {
+                selectedPacks.push(cb.value);
+            });
+
+            if (selectedPacks.length === 0) {
+                alert("Please select at least one template pack.");
+                return;
+            }
+
+            // UI State: Loading
+            document.getElementById('emptyState')?.classList.add('hidden');
+            document.getElementById('resultsHeader').classList.add('hidden');
+            document.getElementById('findingsContainer').innerHTML = '';
+            const loadingState = document.getElementById('loadingState');
+            loadingState.classList.remove('hidden');
+            loadingState.classList.add('flex');
+
+            document.getElementById('workbench').scrollIntoView({behavior: 'smooth'});
+
+            try {
+                const response = await fetch('/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target: target,
+                        scan_mode: scanMode,
+                        selected_packs: selectedPacks
+                    })
+                });
+
+                if (!response.ok) throw new Error("API Error");
+
+                const data = await response.json();
+
+                // UI State: Done
+                loadingState.classList.add('hidden');
+                loadingState.classList.remove('flex');
+
+                renderResults(data);
+
+            } catch (error) {
+                console.error("Scan failed:", error);
+                loadingState.classList.add('hidden');
+                loadingState.classList.remove('flex');
+                document.getElementById('findingsContainer').innerHTML = `
+                    <div class="text-center py-32 border border-dashed border-crimson rounded-2xl">
+                        <h3 class="font-display text-2xl text-crimson mb-2">Scan Failed</h3>
+                        <p class="font-mono text-sm text-charcoal-500">Ensure the backend API is running and reachable.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderResults(data) {
+            // Update Scorecard
+            const header = document.getElementById('resultsHeader');
+            header.classList.remove('hidden');
+
+            const gradeBadge = document.getElementById('gradeBadge');
+            gradeBadge.textContent = data.security_grade;
+
+            // Color grade based on value
+            gradeBadge.className = 'font-display font-bold text-6xl leading-none';
+            if (data.security_grade === 'A' || data.security_grade === 'B') gradeBadge.classList.add('text-acid');
+            else if (data.security_grade === 'C') gradeBadge.classList.add('text-tangerine');
+            else gradeBadge.classList.add('text-crimson');
+
+            document.getElementById('totalFindings').textContent = data.total_findings;
+
+            const container = document.getElementById('findingsContainer');
+            container.innerHTML = '';
+
+            if (data.findings.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-32 border border-dashed border-charcoal-600 rounded-2xl bg-charcoal-700">
+                        <h3 class="font-display text-2xl text-acid mb-2">Target Secured</h3>
+                        <p class="font-mono text-sm text-white">No vulnerabilities found based on selected templates.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Render Findings
+            data.findings.forEach(finding => {
+                const remediation = data.remediations.find(r => r.finding_id === finding.id);
+                const hasRemediation = !!remediation;
+
+                const severityColor = finding.severity === 'CRITICAL' ? 'bg-crimson' : (finding.severity === 'HIGH' ? 'bg-tangerine' : 'bg-acid text-charcoal-900');
+
+                // Escape code for safe rendering
+                const codeSnippet = hasRemediation ? remediation.patched_code_snippet.replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'No patch generated.';
+                const unifiedDiff = hasRemediation ? remediation.unified_diff.replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'No diff available.';
+                const summary = hasRemediation ? remediation.ferpa_summary : 'Manual review required.';
+
+                const cardHtml = `
+                    <div class="finding-card bg-charcoal-700 border border-charcoal-600 rounded-2xl overflow-hidden flex flex-col md:flex-row">
+
+                        <!-- Left Info Panel -->
+                        <div class="p-6 md:w-1/3 border-b md:border-b-0 md:border-r border-charcoal-600 flex flex-col">
+                            <div class="flex items-center gap-3 mb-4">
+                                <span class="px-3 py-1 text-[11px] font-bold font-mono tracking-wider rounded-full uppercase ${severityColor} ${finding.severity === 'CRITICAL' || finding.severity === 'HIGH' ? 'text-white' : ''}">
+                                    ${finding.severity}
+                                </span>
+                                <span class="px-3 py-1 text-[11px] font-mono tracking-wider rounded-full bg-charcoal-800 text-charcoal-500 border border-charcoal-600">
+                                    ${finding.owasp_asvs_id}
+                                </span>
+                            </div>
+                            <h4 class="font-display font-medium text-xl leading-tight text-white mb-2">${finding.title}</h4>
+                            <p class="font-mono text-sm text-charcoal-500 mb-6 flex-1">${finding.description}</p>
+
+                            <div class="mt-auto">
+                                <div class="bg-charcoal-800 p-4 rounded-xl border border-charcoal-600">
+                                    <h5 class="text-[11px] font-bold text-acid font-mono uppercase tracking-wider mb-2">Gemma AI Principal Summary</h5>
+                                    <p class="text-sm text-alabaster leading-relaxed font-body">${summary}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Code Panel -->
+                        <div class="p-6 md:w-2/3 bg-charcoal-900 flex flex-col relative">
+                            <div class="flex justify-between items-center mb-4">
+                                <span class="font-mono text-xs text-charcoal-600 uppercase tracking-widest">Remediation Patch</span>
+                                <button onclick="copyPatch(this)" data-patch="${encodeURIComponent(hasRemediation ? remediation.patched_code_snippet : '')}" data-diff="${encodeURIComponent(hasRemediation ? remediation.unified_diff : '')}" class="px-4 py-1.5 bg-charcoal-800 text-white rounded-full text-xs font-mono font-medium hover:bg-charcoal-700 transition-all border border-charcoal-600 flex items-center gap-2 copy-btn">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                    Copy Patch
+                                </button>
+                            </div>
+
+                            <!-- The Code Block -->
+                            <div class="flex-1 bg-[#0A0A0A] rounded-xl border border-[#1A1A1A] overflow-hidden p-4 overflow-x-auto">
+                                <pre class="font-mono text-[13px] leading-relaxed text-gray-300 w-full"><code class="code-content" data-snippet="${encodeURIComponent(hasRemediation ? remediation.patched_code_snippet : '')}" data-diff="${encodeURIComponent(hasRemediation ? remediation.unified_diff : '')}">${isDevPatchMode ? unifiedDiff : codeSnippet}</code></pre>
+                            </div>
+                        </div>
+
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+
+        function copyPatch(btn) {
+            const isDiff = document.body.classList.contains('dev-patch-mode');
+            const rawData = isDiff ? btn.getAttribute('data-diff') : btn.getAttribute('data-patch');
+            const textToCopy = decodeURIComponent(rawData);
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const originalText = btn.innerHTML;
+                btn.innerHTML = `<span class="text-charcoal-900 font-bold">Copied! ✓</span>`;
+                btn.classList.remove('bg-charcoal-800', 'text-white');
+                btn.classList.add('bg-acid');
+
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('bg-acid');
+                    btn.classList.add('bg-charcoal-800', 'text-white');
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>
