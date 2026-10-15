@@ -4,7 +4,8 @@ from pydantic import BaseModel, Field
 class AuditPackRequest(BaseModel):
     target: str = Field(..., description="Target domain URL or local path to scan")
     scan_mode: Literal["perimeter", "source_code", "hybrid"] = "hybrid"
-    selected_packs: List[str] = Field(default=["all"], description="List of template pack IDs to execute")
+    selected_packs: List[str] = Field(default=["all"], description="List of template packs to execute")
+    model_name: str = Field(default="gemma4:e4b", description="Ollama model tag to use for AI remediation")
 
 class Finding(BaseModel):
     id: str
@@ -17,8 +18,8 @@ class Finding(BaseModel):
     compliance_impact: str
 
 class GemmaRemediation(BaseModel):
-    executive_summary: str = Field(..., description="Non-technical FERPA/NDPR risk overview for school administrators")
-    patched_code_snippet: str = Field(..., description="Secure code or config replacement block")
+    executive_summary: str = Field(..., description="FERPA/NDPR risk overview")
+    patched_code_snippet: str = Field(..., description="Secure replacement code")
     unified_diff: str = Field(..., description="Ready-to-apply diff patch")
 
 class AuditReport(BaseModel):

@@ -6,12 +6,10 @@ from ai_engine.cheatsheets import OWASP_CHEATSHEETS
 from ai_engine.tracing import trace_ai_pipeline
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "gemma2:2b" # Fast on CPU/VPS, qualifies for Best Use of Gemma featured category
 
-def remediate_findings(findings: List[Finding]) -> List[GemmaRemediation]:
+def remediate_findings(findings: List[Finding], model_name: str = "gemma4:e4b") -> List[GemmaRemediation]:
     remediations = []
     
-    # Group findings by pack to batch LLM calls efficiently
     for finding in findings:
         cheatsheet_context = OWASP_CHEATSHEETS.get(finding.pack_id, "Follow secure coding best practices.")
         
@@ -36,16 +34,16 @@ def remediate_findings(findings: List[Finding]) -> List[GemmaRemediation]:
         """
 
         try:
-            with trace_ai_pipeline(finding.title, MODEL_NAME):
+            with trace_ai_pipeline(finding.title, model_name):
                 response = httpx.post(
                     OLLAMA_URL,
                     json={
-                        "model": MODEL_NAME,
+                        "model": model_name,
                         "prompt": prompt,
                         "format": "json",
                         "stream": False
                     },
-                    timeout=60.0
+                    timeout=300.0
                 )
                 response.raise_for_status()
                 result_json = json.loads(response.json()["response"])
@@ -55,8 +53,7 @@ def remediate_findings(findings: List[Finding]) -> List[GemmaRemediation]:
                     patched_code_snippet=result_json.get("patched_code_snippet", "# Apply security hardening"),
                     unified_diff=result_json.get("unified_diff", "--- a/file\n+++ b/file\n# Secure fix applied")
                 ))
-        except Exception as e:
-            # Fallback if Ollama is not currently running locally during offline tests
+        except Exception:
             remediations.append(GemmaRemediation(
                 executive_summary=f"[Local AI Fallback] {finding.title} exposes the school portal to compliance penalties. Immediate remediation required.",
                 patched_code_snippet=f"# Recommended fix per {finding.owasp_asvs_id}\n# Secure the file path: {finding.location}",
