@@ -1,0 +1,306 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-charcoal-900: #0a0a0a;
+    --color-charcoal-800: #141414;
+    --color-charcoal-700: #181818;
+    --color-charcoal-600: #2E2E2E;
+    --color-charcoal-500: #383838;
+    --color-alabaster: #F4F2ED;
+    --color-acid: #E2FF32;
+    --color-tangerine: #FF6B2B;
+    --color-crimson: #FF4D4D;
+  }
+
+  body {
+    background-color: var(--color-charcoal-800);
+    font-family: 'Inter', sans-serif;
+    color: var(--color-charcoal-800);
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+}
+
+.font-display {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Adaptive Outer Viewport Frame: Desktop Displays Only (>1024px) */
+@media (min-width: 1025px) {
+  #global-frame {
+    position: fixed;
+    inset: 0;
+    border: 14px solid var(--color-charcoal-800);
+    border-radius: 24px;
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  #viewport-content {
+    width: 100%;
+    min-height: 100vh;
+    padding: 14px;
+    box-sizing: border-box;
+    background-color: var(--color-charcoal-800);
+  }
+
+  #scroll-container {
+    width: 100%;
+    min-height: calc(100vh - 28px);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    background-color: var(--color-alabaster);
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Mobile & Tablet Full-Bleed Viewport (<=1024px): Zero Frame, Zero Padding, Zero Clipping */
+@media (max-width: 1024px) {
+  #global-frame {
+    display: none !important;
+  }
+
+  #bottom-cutout {
+    display: none !important;
+  }
+
+  #viewport-content {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-height: 100vh !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box;
+    background-color: transparent !important;
+    overflow-x: hidden !important;
+  }
+
+  #scroll-container {
+    width: 100% !important;
+    max-width: 100vw !important;
+    min-height: 100vh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: transparent !important;
+    overflow-x: hidden !important;
+  }
+}
+
+/* Pack Card Rounded Edge Rectangle Styling */
+.pack-card {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  width: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  transition: transform 0.2s ease, background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.pack-card:active {
+  transform: scale(0.99);
+}
+
+/* Pack Card Active State (Acid Yellow #E2FF32) */
+.pack-card.active {
+  background-color: var(--color-acid) !important;
+  border-color: var(--color-acid) !important;
+  color: var(--color-charcoal-800) !important;
+}
+
+/* Pack Card Unselected Hover State: turns Tangerine Orange (#FF6B2B) */
+.pack-card:not(.active):hover {
+  background-color: var(--color-tangerine) !important;
+  border-color: var(--color-tangerine) !important;
+  color: var(--color-charcoal-800) !important;
+}
+.pack-card:not(.active):hover .card-title,
+.pack-card:not(.active):hover p,
+.pack-card:not(.active):hover span {
+  color: var(--color-charcoal-800) !important;
+}
+.pack-card:not(.active):hover .num-indicator {
+  background-color: rgba(20, 20, 20, 0.15) !important;
+  color: var(--color-charcoal-800) !important;
+}
+.pack-card:not(.active):hover .checks-pill {
+  background-color: rgba(20, 20, 20, 0.12) !important;
+  color: var(--color-charcoal-800) !important;
+}
+.pack-card:not(.active):hover .check-bubble {
+  border-color: var(--color-charcoal-800) !important;
+  background-color: var(--color-charcoal-800) !important;
+  color: #ffffff !important;
+}
+.pack-card:not(.active):hover .divider-line {
+  border-color: rgba(20, 20, 20, 0.2) !important;
+}
+
+/* Responsive Card Rounded Edges for Mobile Devices */
+@media (max-width: 640px) {
+  .pack-card {
+    border-radius: 18px;
+  }
+}
+
+/* Findings Container Progress Fill Animation (#findingsContainer) */
+@keyframes findingsProgressSweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes progressFillBar {
+  0% {
+    width: 4%;
+  }
+  25% {
+    width: 32%;
+  }
+  60% {
+    width: 68%;
+  }
+  85% {
+    width: 90%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+@keyframes findingsGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(226, 255, 50, 0.15), 0 8px 30px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(226, 255, 50, 0.4), 0 0 25px rgba(226, 255, 50, 0.12);
+  }
+}
+
+#findingsContainer {
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Subtle Progress Fill Effect when a new audit scan is initiated */
+#findingsContainer.scanning,
+#findingsContainer[data-scanning="true"],
+#findingsContainer.scan-progress-active {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  animation: findingsGlowPulse 2s ease-in-out infinite;
+}
+
+#findingsContainer.scanning::before,
+#findingsContainer[data-scanning="true"]::before,
+#findingsContainer.scan-progress-active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #E2FF32 0%, #FF6B2B 50%, #E2FF32 100%);
+  background-size: 200% 100%;
+  animation: findingsProgressSweep 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  box-shadow: 0 0 14px rgba(226, 255, 50, 0.6);
+  z-index: 30;
+}
+
+#findingsContainer.scanning::after,
+#findingsContainer[data-scanning="true"]::after,
+#findingsContainer.scan-progress-active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(226, 255, 50, 0.03) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+.findings-progress-track {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.findings-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #E2FF32, #FF6B2B, #E2FF32);
+  background-size: 200% 100%;
+  border-radius: 9999px;
+  animation: progressFillBar 2.2s ease-out forwards, findingsProgressSweep 1.6s linear infinite;
+  box-shadow: 0 0 10px rgba(226, 255, 50, 0.5);
+}
+
+/* Institutional PDF Print & Reporting Styles */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #141414 !important;
+  }
+
+  header, 
+  nav, 
+  #global-frame, 
+  footer, 
+  .print-hidden,
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+
+  #viewport-content,
+  #scroll-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    background-color: #ffffff !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+  }
+
+  #workbench-anchor {
+    background-color: #ffffff !important;
+    border-top: none !important;
+    padding: 0 !important;
+  }
+
+  .finding-card {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    border: 1px solid #d1d5db !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    margin-bottom: 1.5rem !important;
+    box-shadow: none !important;
+  }
+
+  .finding-card * {
+    color: #111827 !important;
+  }
+
+  .finding-card pre {
+    background-color: #f3f4f6 !important;
+    border: 1px solid #e5e7eb !important;
+    color: #1f2937 !important;
+  }
+}
+
+
+
