@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Toaster, toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { 
@@ -191,6 +191,65 @@ interface Remediation {
   executive_summary: string;
   patched_code_snippet: string;
   unified_diff: string;
+}
+
+
+// Plays a video and makes near-white pixels transparent in real time via canvas,
+// since MP4 itself has no alpha channel. Threshold/softness are tunable.
+function ChromaKeyVideo({ src, className }: { src: string; className?: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+
+    let rafId = 0;
+    const threshold = 235;
+    const softness = 40;
+
+    const draw = () => {
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = frame.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const r = d[i], g = d[i + 1], b = d[i + 2];
+          const minChannel = Math.min(r, g, b);
+          if (minChannel > threshold - softness) {
+            const t = Math.min(1, Math.max(0, (minChannel - (threshold - softness)) / softness));
+            d[i + 3] = Math.round(d[i + 3] * (1 - t));
+          }
+        }
+        ctx.putImageData(frame, 0, 0);
+      }
+      rafId = requestAnimationFrame(draw);
+    };
+    rafId = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
+  return (
+    <>
+      <video
+        ref={videoRef}
+        src={src}
+        autoPlay
+        loop
+        muted
+        playsInline
+        style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}
+      />
+      <canvas ref={canvasRef} className={className} />
+    </>
+  );
 }
 
 const SAMPLE_FINDINGS: Finding[] = [
@@ -1144,27 +1203,8 @@ export default function App() {
 
                   {/* Video Showcase Container */}
                   <div className="w-full lg:w-[40%] flex justify-center items-center h-[260px] sm:h-[340px] lg:h-[420px]">
-                    <div className="w-full h-full rounded-2xl sm:rounded-[24px] overflow-hidden border border-[#141414] shadow-2xl bg-[#141414] relative flex items-center justify-center">
-                      <video 
-                        src="/ui/hero.mp4" 
-                        autoPlay 
-                        loop 
-                        muted 
-                        playsInline 
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          // Fallback poster styling if static video is not yet loaded
-                          const target = e.currentTarget;
-                          target.style.display = 'none';
-                        }}
-                      />
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-[#F4F2ED] p-6 text-center bg-gradient-to-t from-black/80 via-black/40 to-black/20 pointer-events-none">
-                        <div className="w-14 h-14 rounded-2xl bg-[#E2FF32]/10 border border-[#E2FF32] flex items-center justify-center mb-3">
-                          <ShieldAlert className="text-[#E2FF32]" size={28} />
-                        </div>
-                        <h4 className="font-display font-medium text-lg">EduGuard Continuous Inspector</h4>
-                        <p className="font-mono text-xs text-neutral-400 mt-1">Autonomous FERPA & ASVS Rule Verification</p>
-                      </div>
+                    <div className="w-full h-full rounded-2xl sm:rounded-[24px] overflow-hidden relative flex items-center justify-center">
+                                            <ChromaKeyVideo src="/ui/static/hero.mp4" className="w-full h-full object-cover" />
                     </div>
                   </div>
                 </div>
@@ -2110,18 +2150,6 @@ export default function App() {
 
         </div>
       </div>
-
-      {/* Floating Scan History Tab (Quick-access from any view) */}
-      <button 
-        onClick={() => setIsHistoryOpen(true)}
-        className="fixed right-0 top-1/2 -translate-y-1/2 z-30 bg-[#181818] border-l-2 border-y border-l-[#E2FF32] border-y-[#383838] text-white px-2 sm:px-2.5 py-3.5 sm:py-4 rounded-l-xl shadow-2xl flex flex-col items-center gap-2 group hover:bg-[#222] transition-all cursor-pointer hover:border-l-[#FF6B2B]"
-        title="Open Scan History Archives"
-      >
-        <History size={16} className="text-[#E2FF32] group-hover:rotate-[-45deg] transition-transform" />
-        <span className="font-mono text-[10px] tracking-wider uppercase [writing-mode:vertical-lr] text-neutral-300 font-bold group-hover:text-white">
-          History ({scanHistory.length})
-        </span>
-      </button>
 
       {/* Scan History Slide-over Sidebar Drawer */}
       {isHistoryOpen && (
