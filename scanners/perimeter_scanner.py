@@ -1,5 +1,6 @@
 import ipaddress
 import os
+import re
 import socket
 from typing import List, Optional
 from urllib.parse import urlparse
@@ -51,21 +52,25 @@ def assert_public_host(host: str) -> bool:
     return True
 
 
-def _dmarc_status(domain: str) -> Optional[bool]:
-    """True = found, False = definitively missing, None = could not determine."""
+def _dmarc_policy(domain: str) -> Optional[str]:
+    """Returns the DMARC policy ('reject'/'quarantine'/'none') if a record exists,
+    '' if no record was found, or None if the lookup could not be determined."""
     labels = domain.split(".")
     candidates = [".".join(labels[i:]) for i in range(len(labels) - 1)]  # subdomain inherits parent policy
     unknown = False
     for cand in candidates:
         try:
             answers = dns.resolver.resolve(f"_dmarc.{cand}", "TXT", lifetime=5.0)
-            if any("v=dmarc1" in str(r).lower() for r in answers):
-                return True
+            for r in answers:
+                txt = str(r).lower()
+                if "v=dmarc1" in txt:
+                    match = re.search(r"p=(\w+)", txt)
+                    return match.group(1) if match else "none"
         except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
             continue
         except Exception:
             unknown = True
-    return None if unknown else False
+    return None if unknown else ""
 
 
 def scan_perimeter(target_url: str) -> List[Finding]:
@@ -113,16 +118,29 @@ def scan_perimeter(target_url: str) -> List[Finding]:
             pass  # host offline or TLS failure: no HTTP findings
 
     # 2. DMARC check (Pack 1); skipped for raw IP targets
-    if not _is_ip(host) and _dmarc_status(host) is False:
-        findings.append(Finding(
-            id="EDU-DNS-001",
-            pack_id="pack_1_dns",
-            title="Missing DMARC Policy on School Domain",
-            severity="HIGH",
-            owasp_asvs_id="ASVS v4.0 - 1.14.3",
-            location=host,
-            evidence=f"No valid _dmarc TXT record found for {host} or its parent domains.",
-            compliance_impact="Permits malicious actors to spoof bursar and admissions emails to students and parents.",
-        ))
+    if not _is_ip(host):
+        policy = _dmarc_policy(host)
+        if policy == "":
+            findings.append(Finding(
+                id="EDU-DNS-001",
+                pack_id="pack_1_dns",
+                title="Missing DMARC Policy on School Domain",
+                severity="HIGH",
+                owasp_asvs_id="ASVS v4.0 - 1.14.3",
+                location=host,
+                evidence=f"No valid _dmarc TXT record found for {host} or its parent domains.",
+                compliance_impact="Permits malicious actors to spoof bursar and admissions emails to students and parents.",
+            ))
+        elif policy == "none":
+            findings.append(Finding(
+                id="EDU-DNS-003",
+                pack_id="pack_1_dns",
+                title="Weak DMARC Policy (p=none) on School Domain",
+                severity="MEDIUM",
+                owasp_asvs_id="ASVS v4.0 - 1.14.3",
+                location=host,
+                evidence=f"_dmarc.{host} record found, but policy is 'p=none' (monitor-only).",
+                compliance_impact="A p=none policy only reports spoofed mail after the fact; it does not block or quarantine forged emails impersonating the bursar or admissions office.",
+            ))
 
     return findings
