@@ -823,7 +823,7 @@ export default function App() {
       setIsScanning(false);
       setHasScanned(true);
 
-      if (isConnectedBackend && liveResult && liveResult.findings && liveResult.findings.length > 0) {
+      if (isConnectedBackend && liveResult && liveResult.findings) {
         // Gemma IS connected: Generate authentic audit scorecard
         setIsGemmaConnected(true);
         setShowDisconnectedWriteup(false);
@@ -2036,7 +2036,7 @@ export default function App() {
                       <span className="font-mono text-xs font-bold text-[#FF6B2B]">STAGE 01</span>
                       <h3 className="font-display font-medium text-xl text-white mt-2 mb-3">Deterministic Engine</h3>
                       <p className="font-mono text-xs sm:text-sm text-neutral-400 leading-relaxed mb-4">
-                        Scans target codebases or perimeters using AST pattern matching, Semgrep rules, DNS queries, and TLS header validation.
+                        Scans target codebases or perimeters using pattern-based source checks and DNS/HTTP header inspection.
                       </p>
                     </div>
                     <div className="pt-4 border-t border-[#2E2E2E] text-xs font-mono text-[#E2FF32]">
