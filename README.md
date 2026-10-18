@@ -1,8 +1,8 @@
-# EduGuard — Autonomous Educational Security Auditor
+# EduGuard | Autonomous Educational Security Auditor
 
-> *An open-weight AI security scanner built for schools and universities, powered entirely by a local Gemma model — no cloud API, no per-scan cost, no student data ever leaving the school's own server.*
+> *An open-weight AI security scanner built for schools and universities, powered entirely by a local Gemma model no cloud API, no per-scan cost, no student data ever leaving the school's own server.*
 
-**Built by Wilcard**, student at **FUOYE (Federal University Oye-Ekiti)**, for the **Hacktoberfest Open-Source AI Challenge: Week 2 — "Side Hustle"** *(October 2026)*.
+**Built by wilcardjayx**, for the **Hacktoberfest Open-Source AI Challenge: Week 2 | "Side Hustle"** *(October 2026)*.
 
 ---
 
@@ -32,7 +32,7 @@ Schools and universities run public-facing websites — **student portals, admis
 - ❌ **SQL injection and broken access control** in student-facing APIs
 - ❌ **Unrestricted file upload handlers** on assignment/transcript portals
 
-Commercial vulnerability scanners exist, but they're *priced for enterprises*, not school IT budgets — and they send your data to *someone else's cloud*.
+Commercial vulnerability scanners exist, but they're *priced for enterprises*, not school IT budgets and they send your data to *someone else's cloud*.
 
 ---
 
@@ -48,7 +48,7 @@ Paste a school's domain *(or point at a codebase)*, and **EduGuard** runs a set 
 
 | Reason | Explanation |
 |:---|:---|
-| 🔒 **Data never leaves the premises** | A security scan of a live production student portal is *sensitive by nature* — it's literally a list of a school's own vulnerabilities. Running Gemma locally via **Ollama** means that data stays on the school's own server, *never touching a third-party API*. |
+| 🔒 **Data never leaves the premises** | A security scan of a live production student portal is *sensitive by nature* it's literally a list of a school's own vulnerabilities. Running Gemma locally via **Ollama** means that data stays on the school's own server, *never touching a third-party API*. |
 | 💰 **Zero per-scan cost** | A cloud LLM API charges *per call*. A school running recurring scans across dozens of subdomains, every week, on a tight budget, **cannot sustainably pay per-token pricing**. A local model makes this financially viable as an actual *recurring service*, not just a one-off audit. |
 | 📡 **Works offline** | Many school networks are *deliberately locked down*. A tool that depends on reaching an external API is a tool that **can't be deployed inside those networks at all**. |
 
@@ -91,7 +91,7 @@ Local Gemma model via Ollama (gemma2:2b / gemma4:e4b)
 Scored report (Security Grade A–F, per-finding remediation)
 ```
 
-The **detection logic is fully deterministic** — *it doesn't depend on the AI at all*, and is the **same every time** for the same target. The AI's job is *purely explanation and remediation text*, generated fresh per scan.
+The **detection logic is fully deterministic** *it doesn't depend on the AI at all*, and is the **same every time** for the same target. The AI's job is *purely explanation and remediation text*, generated fresh per scan.
 
 ---
 
@@ -111,7 +111,7 @@ The **detection logic is fully deterministic** — *it doesn't depend on the AI 
 ### **1. Clone and install backend dependencies**
 
 ```bash
-git clone <this-repo>
+git clone https://github.com/wilcardjayx/eduguard-auditor
 cd eduguard-auditor
 pip install -r requirements.txt
 ```
@@ -120,7 +120,7 @@ pip install -r requirements.txt
 
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull gemma2:2b
+ollama pull gemma2:2B or ollama pull gemma4:e4b
 ```
 
 ### **3. Build the frontend**
@@ -145,17 +145,17 @@ Open **`http://localhost:8000`**, enter a target, pick a template pack, and run 
 
 ## 🧱 How This Was Actually Built
 
-This started as a *broader idea* — an **open-source recon pipeline** *(subdomain enumeration, port scanning, fingerprinting via existing OSS security tools)* with an LLM triage layer on top. Partway through, the project **pivoted** to something *narrower and more defensible*: a **purpose-built scanner for schools specifically**, with every finding mapped to a real **OWASP ASVS v4.0** control ID and framed around **FERPA/NDPR compliance language** that actually means something to a school administrator — rather than *raw tool output* a non-technical IT staffer can't parse.
+This started as a *broader idea* an **open-source recon pipeline** *(subdomain enumeration, port scanning, fingerprinting via existing OSS security tools)* with an LLM triage layer on top. Partway through, the project **pivoted** to something *narrower and more defensible*: a **purpose-built scanner for schools specifically**, with every finding mapped to a real **OWASP ASVS v4.0** control ID and framed around **FERPA/NDPR compliance language** that actually means something to a school administrator rather than *raw tool output* a non-technical IT staffer can't parse.
 
-The build went through **two frontend iterations** — a simpler server-rendered version, then a full **React rebuild** with *scan history, CSV/PDF export, and a live AI-connection status panel* — wired to the same **FastAPI backend** throughout.
+The build went through **two frontend iterations** a simpler server-rendered version, then a full **React rebuild** with *scan history, CSV/PDF export, and a live AI-connection status panel* wired to the same **FastAPI backend** throughout.
 
 Along the way, a chain of **real bugs** got found and fixed, each **confirmed against actual evidence** rather than assumption:
 
 - 🐛 **A misleading "Gemma disconnected" message** that fired on *any* backend error, including a perfectly clean scan with zero findings — *fixed so a clean result shows as clean, not broken*.
-- 🐛 **Hardcoded fake "status" cards** that displayed "Unreachable"/"Offline" regardless of actual connectivity — *caught because one of them claimed the backend was offline while it was being used to serve the very page displaying that claim*.
+- 🐛 **Hardcoded fake "status" cards** that displayed "Unreachable"/"Offline" regardless of actual connectivity *caught because one of them claimed the backend was offline while it was being used to serve the very page displaying that claim*.
 - 🐛 **An Ollama cold-start timing issue** behind a Cloudflare tunnel, where the first inference call *(loading a multi-GB model into memory)* outran the tunnel's request timeout, *making a working pipeline look broken on the first try*.
-- 🐛 **A DMARC check that only looked for a record's existence**, not its strength — missing the common real-world case of a `p=none` policy, which *exists but provides no actual protection*. **Added a second, more precise check** for this.
-- 🐛 **Stale demo/seed data** that looked like real scan history on a fresh browser load — *removed so a new visitor starts from a genuinely empty state*.
+- 🐛 **A DMARC check that only looked for a record's existence**, not its strength missing the common real-world case of a `p=none` policy, which *exists but provides no actual protection*. **Added a second, more precise check** for this.
+- 🐛 **Stale demo/seed data** that looked like real scan history on a fresh browser load *removed so a new visitor starts from a genuinely empty state*.
 
 > ✅ **Every fix in this list was verified, not assumed** — the DMARC and HSTS findings shown in this project's own testing were *independently cross-checked* against raw `dig` and `curl` output before being trusted.
 
@@ -171,7 +171,7 @@ Along the way, a chain of **real bugs** got found and fixed, each **confirmed ag
 
 ## 👤 First User
 
-Tested against **FUOYE's own domain** (`fuoye.edu.ng`) and a **live personal site**, both of which returned *real, independently-verified findings* — a **weak DMARC policy** and a **missing HSTS header**, respectively — **not synthetic demo data**.
+Tested against **FUOYE's own domain** (`fuoye.edu.ng`) and a **live personal site**, both of which returned *real, independently-verified findings* a **weak DMARC policy** and a **missing HSTS header**, respectively **not synthetic demo data**.
 
 ---
 
