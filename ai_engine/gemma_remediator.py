@@ -8,7 +8,8 @@ from ai_engine.cheatsheets import OWASP_CHEATSHEETS
 from ai_engine.tracing import trace_ai_pipeline
 from core.models import Finding, GemmaRemediation
 
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
+OLLAMA_BASE = os.getenv("OLLAMA_BASE", "http://localhost:11434")
+OLLAMA_URL = os.getenv("OLLAMA_URL", f"{OLLAMA_BASE}/api/generate")
 MAX_FIELD_CHARS = 8000
 
 
