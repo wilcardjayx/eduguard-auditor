@@ -1,184 +1,285 @@
-# EduGuard | Autonomous Educational Security Auditor
+# EduGuard
 
-> *An open-weight AI security scanner built for schools and universities, powered entirely by a local Gemma model no cloud API, no per-scan cost, no student data ever leaving the school's own server.*
+**Pre-launch security audits for school portals, with a Gemma model running on hardware the auditor controls.**
 
-**Built by wilcardjayx**, for the **Hacktoberfest Open-Source AI Challenge: Week 2 | "Side Hustle"** *(October 2026)*.
+EduGuard runs fixed, deterministic checks against a codebase or a live domain, maps every finding to an OWASP ASVS v4.0 control, and then asks a locally hosted Gemma model to write a fix for each verified finding. The output is a graded A to F report with a plain-English summary for a school board and a git-style diff for the developer.
 
----
+Built by [@wilcardjayx](https://github.com/wilcardjayx) for the Hacktoberfest Open-Source AI Challenge, Week 2: Side Hustle (October 2026).
 
-## 📋 Table of Contents
+**Live demo:** [eduguardauditor.onrender.com](https://eduguardauditor.onrender.com)
 
-- [The Problem](#-the-problem)
-- [The Solution](#-the-solution)
-- [Why Open-Weight AI?](#-why-open-weight-ai-specifically)
-- [What's Being Audited (Template Packs)](#-whats-being-audited-template-packs)
-- [How the AI Pipeline Works](#-how-the-ai-pipeline-works)
-- [Tech Stack](#-tech-stack)
-- [Running Locally](#-running-it-locally)
-- [How This Was Built](#-how-this-was-actually-built)
-- [Known Limitations](#-known-limitations-stated-honestly)
-- [First User](#-first-user)
-- [Demo Video](#-demo-video)
+> The demo runs on Render's free tier. If nobody has opened it recently, the first load can take 30 to 60 seconds while the instance wakes up.
 
 ---
 
-## 🔍 The Problem
+## Contents
 
-Schools and universities run public-facing websites — **student portals, admissions systems, grade APIs** — on tight IT budgets with understaffed security teams. These sites routinely ship with:
-
-- ❌ **Missing or weak email-spoofing protection** (*no DMARC/SPF*), letting attackers forge emails that look like they're from the bursar or admissions office
-- ❌ **Missing transport security** (*no HSTS*), leaving student login sessions open to downgrade attacks
-- ❌ **Exposed configuration files**, debug flags left on in production
-- ❌ **SQL injection and broken access control** in student-facing APIs
-- ❌ **Unrestricted file upload handlers** on assignment/transcript portals
-
-Commercial vulnerability scanners exist, but they're *priced for enterprises*, not school IT budgets and they send your data to *someone else's cloud*.
-
----
-
-## 💡 The Solution
-
-Paste a school's domain *(or point at a codebase)*, and **EduGuard** runs a set of deterministic security checks mapped to **OWASP ASVS v4.0**, then hands each finding to a **locally-running Gemma model** to generate a plain-English risk explanation and a concrete fix — all *without a single byte of scan data leaving the school's own infrastructure*.
+- [Why it exists](#why-it-exists)
+- [How it works](#how-it-works)
+- [Template packs](#template-packs)
+- [Quick start](#quick-start)
+- [API](#api)
+- [Configuration](#configuration)
+- [Project structure](#project-structure)
+- [Tests](#tests)
+- [Security and responsible use](#security-and-responsible-use)
+- [Known limitations](#known-limitations)
+- [Roadmap](#roadmap)
+- [License](#license)
 
 ---
 
-## 🤖 Why Open-Weight AI, Specifically
+## Why it exists
 
-*This is the part that makes the project actually viable as a real tool a school could use — not just a demo:*
+Campus tech clubs and freelance developers ship student portals (elections, hostel management, grade lookups) that rarely get a security review before launch. Selling that review as a small fixed-price service runs into three problems:
 
-| Reason | Explanation |
-|:---|:---|
-| 🔒 **Data never leaves the premises** | A security scan of a live production student portal is *sensitive by nature* it's literally a list of a school's own vulnerabilities. Running Gemma locally via **Ollama** means that data stays on the school's own server, *never touching a third-party API*. |
-| 💰 **Zero per-scan cost** | A cloud LLM API charges *per call*. A school running recurring scans across dozens of subdomains, every week, on a tight budget, **cannot sustainably pay per-token pricing**. A local model makes this financially viable as an actual *recurring service*, not just a one-off audit. |
-| 📡 **Works offline** | Many school networks are *deliberately locked down*. A tool that depends on reaching an external API is a tool that **can't be deployed inside those networks at all**. |
+1. **Client code can't go to a cloud LLM.** Source, configs and credentials belong to the client, and student records fall under data protection law (FERPA in the US, the NDPA in Nigeria). The working rule here: client code stays on hardware the auditor controls.
+2. **Existing scanners are built for security teams.** Their output is a long CVE or XML dump that a campus sysadmin won't read.
+3. **Per-token pricing doesn't fit.** A review priced for a student club can't absorb an API bill on every re-scan after the client fixes something.
 
----
-
-## 🎯 What's Being Audited (Template Packs)
-
-*Six packs, each mapped to an **OWASP ASVS v4.0** control:*
-
-| Pack | What It Checks | Works Against |
-|:---:|:---|:---:|
-| **1 — DNS/Email Spoofing** | DMARC policy (*missing, or weak `p=none`*) | 🌐 A real domain |
-| **2 — Transport & Headers** | HSTS header, secure cookie flags | 🌐 A real domain |
-| **3 — Exposed Configs** | `.env` files, debug-mode flags left on | 💻 Local source code |
-| **4 — SQL Injection** | Unparameterized query string-building | 💻 Local source code |
-| **5 — RBAC / IDOR** | Missing session checks on student-record routes | 💻 Local source code |
-| **6 — File Uploads & PII** | Unrestricted upload handlers | 💻 Local source code |
-
-> ⚠️ **Note:** *Packs 1 and 2* run **live checks** against any domain you give it. *Packs 3–6* require **access to the actual source code**, since those vulnerability classes **can't be proven from the outside** without it.
+EduGuard addresses all three: open-weight Gemma on the auditor's own server, a readable graded report, and a fixed server cost no matter how often you re-scan.
 
 ---
 
-## ⚙️ How the AI Pipeline Works
+## How it works
 
 ```text
-Target (domain or folder)
+Target (local folder or domain)
    │
    ▼
-Deterministic scanner (Python — DNS lookups via dnspython,
-HTTP header checks via httpx, regex-based source scanning)
+Deterministic scanners (plain Python)
+  - DNS lookups via dnspython
+  - HTTP header and cookie checks via httpx
+  - Line-by-line regex rules over source files
    │
    ▼
-Findings (OWASP ASVS-mapped, severity-rated)
+Verified findings (ASVS-mapped, severity-rated, with evidence)
    │
    ▼
-Local Gemma model via Ollama (gemma2:2b / gemma4:e4b)
-   │  — generates: plain-English risk summary, concrete fix,
-   │    FERPA/NDPR-framed compliance impact
+Gemma via Ollama, one finding at a time
+  - executive summary for a school administrator
+  - replacement snippet
+  - unified diff
+   │
    ▼
-Scored report (Security Grade A–F, per-finding remediation)
+Graded report (A–F), Board view + Dev view, CSV / PDF export
 ```
 
-The **detection logic is fully deterministic** *it doesn't depend on the AI at all*, and is the **same every time** for the same target. The AI's job is *purely explanation and remediation text*, generated fresh per scan.
+**Deterministic first, Gemma second.** The model never hunts for bugs. Detection is done by fixed rules, so the same target always gives the same findings. Gemma only receives one verified finding at a time and writes the remediation.
+
+**Prompt-injection aware.** Finding evidence comes from the files being scanned, so the prompt marks it as untrusted data and tells the model not to follow instructions inside it.
+
+**Graceful fallback.** If Ollama is unreachable or a call times out, that finding gets generic OWASP guidance prefixed with `[Local AI Fallback]` instead of hanging the audit.
+
+### Grading
+
+| Grade | Rule |
+| :---: | :--- |
+| F | any CRITICAL finding |
+| D | more than two HIGH findings |
+| C | one or two HIGH findings |
+| B | only MEDIUM or LOW findings |
+| A | no findings |
 
 ---
 
-## 🛠️ Tech Stack
+## Template packs
 
-| Layer | Technologies |
-|:---|:---|
-| 🐍 **Backend** | **FastAPI** (Python), `dnspython` for DNS checks, `httpx` for HTTP probing, `pytest` test suite |
-| ⚛️ **Frontend** | **React** + **TypeScript** + **Vite** + **Tailwind** |
-| 🧠 **AI** | **Ollama** running Gemma locally (`gemma2:2b` for speed, `gemma4:e4b` for deeper reasoning) |
-| 📊 **Observability** | **Sentry Agent Tracing** on the AI pipeline *(optional, off by default)* |
+Each pack maps to OWASP ASVS v4.0 controls (`templates/edu_asvs_rules.yaml`).
+
+| Pack | Target | What it checks today | Status |
+| :--- | :--- | :--- | :--- |
+| 1. Subdomain and email spoofing | live domain | DMARC record missing, or policy is only `p=none` | DMARC done, SPF planned |
+| 2. Transport and headers | live domain, nginx configs | HSTS header, `Secure` / `HttpOnly` cookie flags, nginx on port 80 with no HTTPS redirect | SameSite planned |
+| 3. Exposed configs | folder | committed `.env` files, `APP_DEBUG=true` | done |
+| 4. Injection | folder | SQL built with f-strings, `%`, `+`, `.format()`, PHP `.` concatenation, JS template literals | done |
+| 5. Access control | folder | student-record routes with no session or token check | done (heuristic) |
+| 6. Uploads and student PII | folder | upload handlers with no extension or MIME validation | done |
+
+Packs 1 and 2 run against a live domain. Packs 3 to 6 need source code, because those bug classes can't be proven from the outside.
 
 ---
 
-## 🚀 Running It Locally
+## Quick start
 
-### **1. Clone and install backend dependencies**
+Requires Python 3.12. Node or Bun is only needed if you change the UI; a built front end ships in `ui/react_build/`.
 
 ```bash
-git clone https://github.com/wilcardjayx/eduguard-auditor
-cd eduguard-auditor
+git clone https://github.com/wilcardjayx/EduGuard-auditor.git
+cd EduGuard-auditor
 pip install -r requirements.txt
-```
 
-### **2. Install and start Ollama, pull a model**
-
-```bash
+# local model
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull gemma2:2B or ollama pull gemma4:e4b
+ollama pull gemma2:2b        # fast triage
+# or
+ollama pull gemma4:e4b       # slower, better patches
+
+python app.py                # http://localhost:8000
 ```
 
-### **3. Build the frontend**
+Open the audit page, scan the bundled `./demo_target` folder, and pick a model from the navbar.
+
+### The demo target
+
+`demo_target/` is a deliberately vulnerable sample portal: a SQL-injectable grade lookup, a route with no session check, an upload form that accepts any file, an `.env` template with debug on, and an nginx config with no HSTS. Scanning it returns **six findings and a grade of F**.
+
+### Rebuilding the front end (optional)
 
 ```bash
 cd frontend
-bun install        # or npm install --legacy-peer-deps
+bun install            # or: npm install --legacy-peer-deps
 bun run build
+rm -rf ../ui/react_build && mkdir -p ../ui/react_build
 cp -r dist/. ../ui/react_build/
 ```
 
-### **4. Run the backend**
+---
+
+## API
+
+### `POST /api/scan`
+
+Scan the sample portal with the source code packs:
 
 ```bash
-cd ..
-python app.py
+curl -X POST http://127.0.0.1:8000/api/scan \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "./demo_target",
+    "scan_mode": "source_code",
+    "selected_packs": ["pack_3_configs", "pack_4_sast", "pack_5_rbac", "pack_6_privacy"],
+    "model_name": "gemma2:2b"
+  }'
 ```
 
-Open **`http://localhost:8000`**, enter a target, pick a template pack, and run an audit.
+Scan a domain you own with the perimeter packs:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/scan \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "example.com",
+    "scan_mode": "perimeter",
+    "selected_packs": ["pack_1_dns", "pack_2_transport"],
+    "model_name": "gemma2:2b"
+  }'
+```
+
+| Field | Values |
+| :--- | :--- |
+| `target` | a folder inside the allowed scan roots, or a domain / URL |
+| `scan_mode` | `source_code`, `perimeter`, or `hybrid` |
+| `selected_packs` | pack ids from the table above, or `["all"]` |
+| `model_name` | any model listed in `EDUGUARD_MODELS` |
+
+The response is an `AuditReport` with `security_grade`, `total_findings`, `findings` and one `remediations` entry per finding, in the same order.
+
+### Other endpoints
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `POST /api/export` | same body as `/api/scan`, returns a printable HTML client report |
+| `GET /api/gemma/status` | whether the Ollama server is reachable |
 
 ---
 
-## 🧱 How This Was Actually Built
+## Configuration
 
-This started as a *broader idea* an **open-source recon pipeline** *(subdomain enumeration, port scanning, fingerprinting via existing OSS security tools)* with an LLM triage layer on top. Partway through, the project **pivoted** to something *narrower and more defensible*: a **purpose-built scanner for schools specifically**, with every finding mapped to a real **OWASP ASVS v4.0** control ID and framed around **FERPA/NDPR compliance language** that actually means something to a school administrator rather than *raw tool output* a non-technical IT staffer can't parse.
+All settings are environment variables.
 
-The build went through **two frontend iterations** a simpler server-rendered version, then a full **React rebuild** with *scan history, CSV/PDF export, and a live AI-connection status panel* wired to the same **FastAPI backend** throughout.
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `OLLAMA_BASE` | `http://127.0.0.1:11434` | Ollama server, e.g. a Cloudflare tunnel URL |
+| `OLLAMA_URL` | `$OLLAMA_BASE/api/generate` | override the generate endpoint directly |
+| `EDUGUARD_MODELS` | `gemma4:e4b,gemma2:2b` | models offered in the model picker |
+| `EDUGUARD_ALLOWED_ROOTS` | `./demo_target` | folders the scanner may read, separated by `:` |
+| `EDUGUARD_ALLOW_PRIVATE_TARGETS` | unset | set to `1` to allow private or loopback hosts (local testing only) |
+| `EDUGUARD_HOST` | `0.0.0.0` | bind address |
+| `PORT` | `8000` | bind port (Render sets this) |
+| `SENTRY_DSN` | unset | enables a Sentry span around each Gemma call to track latency per finding |
 
-Along the way, a chain of **real bugs** got found and fixed, each **confirmed against actual evidence** rather than assumption:
+### Deployment used for the demo
 
-- 🐛 **A misleading "Gemma disconnected" message** that fired on *any* backend error, including a perfectly clean scan with zero findings — *fixed so a clean result shows as clean, not broken*.
-- 🐛 **Hardcoded fake "status" cards** that displayed "Unreachable"/"Offline" regardless of actual connectivity *caught because one of them claimed the backend was offline while it was being used to serve the very page displaying that claim*.
-- 🐛 **An Ollama cold-start timing issue** behind a Cloudflare tunnel, where the first inference call *(loading a multi-GB model into memory)* outran the tunnel's request timeout, *making a working pipeline look broken on the first try*.
-- 🐛 **A DMARC check that only looked for a record's existence**, not its strength missing the common real-world case of a `p=none` policy, which *exists but provides no actual protection*. **Added a second, more precise check** for this.
-- 🐛 **Stale demo/seed data** that looked like real scan history on a fresh browser load *removed so a new visitor starts from a genuinely empty state*.
+- **Render** hosts the FastAPI backend and the React build.
+- **Gemma** runs through Ollama on a separate CPU-only server controlled by the author, reached through a Cloudflare tunnel set in `OLLAMA_BASE`.
 
-> ✅ **Every fix in this list was verified, not assumed** — the DMARC and HSTS findings shown in this project's own testing were *independently cross-checked* against raw `dig` and `curl` output before being trusted.
-
----
-
-## ⚠️ Known Limitations (Stated Honestly)
-
-- 🧪 **AI-generated remediation text is not guaranteed perfect.** The detection logic is deterministic and has been verified against ground truth; the fix snippets generated by the local model *occasionally contain errors* (e.g., a malformed DNS record name, or advice for a platform that doesn't support the suggested fix). **The findings themselves are trustworthy**; treat generated fix snippets as a *draft to review*, not a copy-paste-ready patch.
-- 🚧 **SPF checking is defined but not yet implemented.** The template pack lists it as a check; the current scanner only implements the **DMARC half** of Pack 1.
-- 📁 **Packs 3–6 need source code access.** They *cannot meaningfully evaluate* a live website from the outside alone.
+The first call after the model has been idle loads several gigabytes into memory and can outrun the tunnel's request timeout. If the first finding falls back, run the scan again.
 
 ---
 
-## 👤 First User
+## Project structure
 
-Tested against **FUOYE's own domain** (`fuoye.edu.ng`) and a **live personal site**, both of which returned *real, independently-verified findings* a **weak DMARC policy** and a **missing HSTS header**, respectively **not synthetic demo data**.
+```text
+app.py                      FastAPI app, grading, routes
+scanners/
+  orchestrator.py           picks scanners by target, enforces allowed roots
+  code_scanner.py           packs 2 (nginx), 3, 4, 5, 6
+  perimeter_scanner.py      packs 1 and 2 against a live domain, SSRF guard
+ai_engine/
+  gemma_remediator.py       prompt, Ollama call, fallback
+  cheatsheets.py            OWASP guidance used for fallback and context
+  tracing.py                optional Sentry spans
+core/
+  models.py                 Pydantic request, finding and report models
+  exporter.py               HTML client report
+templates/edu_asvs_rules.yaml   pack and check definitions
+demo_target/                deliberately vulnerable sample portal
+frontend/                   React 19 + TypeScript + Vite + Tailwind source
+ui/react_build/             built front end served by FastAPI
+tests/test_eduguard.py      test suite
+```
+
+The part worth reading is `ai_engine/gemma_remediator.py`.
 
 ---
 
-## 🎥 Demo Video
+## Tests
 
-> *(to be added)*
+```bash
+pip install pytest
+python -m pytest -q tests
+```
+
+The suite covers:
+
+- all six checks firing on `demo_target` (exactly six findings)
+- the AI fallback path when Ollama is unreachable
+- the HTML client report export
 
 ---
 
-*Built for the **Hacktoberfest Open-Source AI Challenge: Week 2 | "Side Hustle."** Open innovation made this project possible to actually run: a local, open-weight model is the only reason a tool like this can exist without per-scan cost or a school having to send its own vulnerability data to someone else's cloud.*
+## Security and responsible use
+
+- **Only scan domains you own or have written permission to test.** Perimeter checks are passive (DNS lookups and one HTTPS GET), but permission still matters.
+- **SSRF protection:** perimeter scans refuse targets that resolve to private, loopback or link-local addresses.
+- **Path restriction:** source scans only read folders inside `EDUGUARD_ALLOWED_ROOTS`, skip symlinks, and skip files over 512 KB.
+- **Where data goes:** with Ollama on your own machine, scanned source never reaches a third-party AI provider. Scanning a live domain still sends ordinary DNS and HTTPS requests to that domain, which is the point of the scan.
+
+---
+
+## Known limitations
+
+- **These are pattern rules, not full code analysis.** They miss things a human reviewer would catch and can flag harmless code.
+- **The access-control check is a heuristic.** It flags a file that has a student route and never mentions a session or token. A file that mentions either anywhere passes.
+- **Header checks don't follow redirects.** A CDN or firewall response (such as a Cloudflare 403) can look like a missing header, so a site behind a WAF may score worse than it is.
+- **Gemma's fixes are drafts to review, not patches to paste.** It has produced a malformed DNS record name, for example.
+- **CPU-only inference is slow,** especially with `gemma4:e4b`. Long calls time out per finding and fall back rather than blocking the audit.
+- **Packs 3 to 6 say nothing about a live site** without its source.
+
+---
+
+## Roadmap
+
+- [ ] SPF check (`EDU-DNS-002`)
+- [ ] `SameSite` cookie flag check
+- [ ] Follow one redirect hop and detect CDN block pages
+- [ ] Tests for the perimeter scanner with mocked DNS and HTTP
+- [ ] Route-level access-control check instead of file-level
+- [ ] Demo video
+
+---
+
+## License
+
+Apache 2.0. See [LICENSE](LICENSE).
