@@ -269,6 +269,13 @@ The suite covers:
 
 ---
 
+---
+### Demo Video
+
+https://github.com/user-attachments/assets/ffc967b1-5add-4571-9d60-95bb6ebf4a2d
+
+---
+
 ## Roadmap
 
 - [ ] SPF check (`EDU-DNS-002`)
